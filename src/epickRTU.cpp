@@ -23,7 +23,7 @@ epick::epick(std::string serial_filepath,int device_id,int baud_rate,char parity
     modbus_set_slave(serial, device_id);
     modbus_set_response_timeout(serial, &t);
     modbus_rtu_set_serial_mode(serial, MODBUS_RTU_RS485);
-    modbus_set_debug(serial,TRUE);
+    modbus_set_debug(serial,FALSE);
     modbus_flush(serial);    
 
     running = false;
@@ -128,7 +128,7 @@ void epick::updateDrive(){
         status.gPO =    ( (status_reg[2] & 0xFF00) >> 8);
         count++;
 
-        if(count == 5){
+        if(count == 50){
         std::cout   << "gACT :" << std::to_string(status.gACT) << " gMOD: " 
                     << std::to_string(status.gMOD) << " gGTO: " << std::to_string(status.gGTO) << " gSTA: " 
                     << std::to_string(status.gSTA) << " gOBJ: " << std::to_string(status.gOBJ) << " gVAS: "
@@ -145,8 +145,7 @@ void epick::updateDrive(){
         rc =  modbus_write_registers(serial,INPUT_REGISTERS,3,tab_reg);
         if(rc == -1)  fprintf(stderr, "Write registers failed: %s\n", modbus_strerror(errno));
         
-        usleep(2e4);
-        // modbus_flush(serial);    
+        usleep(2e4);          
     }
 
 }
