@@ -7,7 +7,7 @@
 epick::epick(std::string serial_filepath,int device_id,int baud_rate,char parity,int bits,int stop_bits){
 
    
-    char* serial_chr = new char[serial_filepath.length() + 1];
+    serial_chr = new char[serial_filepath.length() + 1];
     std::copy(serial_filepath.begin(), serial_filepath.end(), serial_chr);
 
     serial  = modbus_new_rtu(serial_chr, baud_rate, parity, bits, stop_bits);
@@ -16,13 +16,14 @@ epick::epick(std::string serial_filepath,int device_id,int baud_rate,char parity
        fprintf(stderr, "Unable to create the libmodbus context\n");       
     }
 
-    timeval t;
-    t.tv_sec = 6;
+    struct timeval t;
+    t.tv_sec = 0;
+    t.tv_usec  = 5e5;
 
     modbus_set_slave(serial, device_id);
     modbus_set_response_timeout(serial, &t);
     modbus_rtu_set_serial_mode(serial, MODBUS_RTU_RS485);
-    modbus_set_debug(serial,FALSE);
+    modbus_set_debug(serial,TRUE);
     modbus_flush(serial);    
 
     running = false;
@@ -38,6 +39,7 @@ epick::epick(std::string serial_filepath,int device_id,int baud_rate,char parity
 }
 
 
+
 int epick::connect(){
 
     if (modbus_connect(serial) == -1) {
@@ -46,6 +48,8 @@ int epick::connect(){
     return -1;
     }
     running = true;
+    drive_thread = std::thread(&epick::updateDrive, this);
+
     return 0;
 
 }
@@ -106,35 +110,46 @@ void epick::updateDrive(){
     uint16_t tab_reg[3];
     uint16_t status_reg[3];
     int rc;
+    int count=0;
+    while(running){  
+        modbus_flush(serial);    
+        usleep(2e4);
+        rc =  modbus_read_input_registers(serial, OUTPUT_REGISTERS, 3, status_reg);
+        if(rc == -1)  fprintf(stderr, "Read registers failed: %s\n", modbus_strerror(errno)); 
 
-    while(running){   
+        status.gACT = ( ( (status_reg[0] & 0xFF00) >> 8) >> 0) & 0x01;
+        status.gMOD = ( ( (status_reg[0] & 0xFF00) >> 8) >> 1) & 0x03;
+        status.gGTO = ( ( (status_reg[0] & 0xFF00) >> 8) >> 3) & 0x01;
+        status.gSTA = ( ( (status_reg[0] & 0xFF00) >> 8) >> 4) & 0x03;
+        status.gOBJ = ( ( (status_reg[0] & 0xFF00) >> 8) >> 6) & 0x03;
+        status.gVAS =   ( (status_reg[0] & 0x00FF) >> 0) & 0x03;
+        status.gFLT = ( ( (status_reg[1] & 0xFF00) >> 8) >> 0) & 0x0F;
+        status.gPR =      (status_reg[1] & 0x00FF);
+        status.gPO =    ( (status_reg[2] & 0xFF00) >> 8);
+        count++;
+
+        if(count == 5){
+        std::cout   << "gACT :" << std::to_string(status.gACT) << " gMOD: " 
+                    << std::to_string(status.gMOD) << " gGTO: " << std::to_string(status.gGTO) << " gSTA: " 
+                    << std::to_string(status.gSTA) << " gOBJ: " << std::to_string(status.gOBJ) << " gVAS: "
+                    << std::to_string(status.gVAS) << " gFLT: " << std::to_string(status.gFLT) << " gPR: "
+                    << std::to_string(status.gPR)  << " gPO: "  << std::to_string(status.gPO ) << std::endl;
+        count = 0;
+        }
+
 
         tab_reg[0] = ( ( command.rACT + (command.rMOD << 1) + (command.rGTO << 3) + (command.rATR << 4) ) << 8 ) + 0;        
         tab_reg[1] = ( 0 << 8 ) +  command.rPR;       
         tab_reg[2] = command.rSP << 8 + command.rFR;
-
+        
         rc =  modbus_write_registers(serial,INPUT_REGISTERS,3,tab_reg);
         if(rc == -1)  fprintf(stderr, "Write registers failed: %s\n", modbus_strerror(errno));
-
-        rc =  modbus_read_input_registers(serial, OUTPUT_REGISTERS, 3, status_reg);
-        if(rc == -1)  fprintf(stderr, "Write registers failed: %s\n", modbus_strerror(errno)); 
-
-        status.gACT = ( ((status_reg[0] & 0xFF00) >> 8) >> 0) & 0x01;
-        status.gMOD = ( ((status_reg[0] & 0xFF00) >> 8) >> 1) & 0x03;
-        status.gGTO = ( ((status_reg[0] & 0xFF00) >> 8) >> 3) & 0x01;
-        status.gSTA = ( ((status_reg[0] & 0xFF00) >> 8) >> 4) & 0x03;
-        status.gOBJ = ( ((status_reg[0] & 0xFF00) >> 8) >> 6) & 0x03;
-
-        status.gVAS = (  (status_reg[0] & 0x00FF ) >> 0) & 0x03;
-        status.gFLT = ( ((status_reg[1] & 0xFF00 ) >> 8) >> 0) & 0x0F;
-        status.gPR =  (   status_reg[1] & 0x00FF );
-        status.gPO =  (  (status_reg[2] & 0xFF00 ) >> 8);
-
-        usleep(2e5);
+        
+        usleep(2e4);
+        // modbus_flush(serial);    
     }
 
 }
-
 
 
 
