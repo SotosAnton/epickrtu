@@ -1,0 +1,4 @@
+<launch> 
+  <node name="socat_node" pkg="epick_rtu" type="socat.sh" output="screen"/>
+  <node name="robotiq_epick_node" pkg="epick_rtu" type="epick_rtu_node" output="screen" />
+</launch>
