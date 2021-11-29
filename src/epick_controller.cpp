@@ -1,45 +1,52 @@
 #include <ros/ros.h>
 #include <modbus/modbus.h>
 #include <epickRTU.h>
-#include "std_msgs/String.h"
+#include "std_msgs/Int16.h"
 
 #define cmd_speed_reg 0x2199
 #define eta_speed_reg 0x219B
 #define lfrd_reg 0x219A
 
 
-std::string command;
+int command;
+epick *gripper;
 
 
-void commandCallback(const std_msgs::String::ConstPtr& msg){
+void commandCallback(const std_msgs::Int16::ConstPtr& msg){
 
 command = msg->data;
+std::cout << "got command : " << command << std::endl; 
 
+if(command == 1){
+        gripper->grip();
+    }else if(command == 2){
+        gripper->release();
+
+    }else if(command == 3){
+        
+    }
 }
 
 int main(int argc, char** argv) {
 
 ros::init(argc, argv, "epick_node");
 ros::NodeHandle n;
-ros::Subscriber sub = n.subscribe("chatter", 1000, commandCallback);
+ros::Subscriber sub = n.subscribe("/epick", 1, commandCallback,ros::TransportHints().tcpNoDelay());
 
 
-epick *gripper;
 
-std::string serial_filepath = "/dev/ttyUSB0";
+std::string serial_filepath = "/tmp/ttyUR";
 
 gripper = new epick(serial_filepath);
 gripper->connect();
 
+// void epick::configure(int MOD,int PR,int SR,int FR)
 
-ros::Rate loop_rate(10);
+gripper->configure(1,55,20,80);
 
-while (ros::ok()){
+// ros::Rate loop_rate(10);
 
-
-loop_rate.sleep();
-}
-
+ros::spin();
 gripper->exit();
 
 return 0;

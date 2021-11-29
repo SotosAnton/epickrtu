@@ -58,6 +58,7 @@ class epick
     int target_vacuum;
 
     private:
+    char* serial_chr;
     modbus_t *serial;
     std::thread drive_thread;
     bool running;
