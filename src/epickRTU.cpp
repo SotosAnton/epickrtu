@@ -113,30 +113,32 @@ void epick::updateDrive(){
     int count=0;
     while(running){  
         modbus_flush(serial);    
-        usleep(1e4);
+        usleep(2e4);
         rc =  modbus_read_input_registers(serial, OUTPUT_REGISTERS, 3, status_reg);
-        if(rc == -1)  fprintf(stderr, "Read registers failed: %s\n", modbus_strerror(errno)); 
+        
+        if(rc == -1){  
+            fprintf(stderr, "Read registers failed: %s\n", modbus_strerror(errno)); 
+        }else{
+            status.gACT = ( ( (status_reg[0] & 0xFF00) >> 8) >> 0) & 0x01;
+            status.gMOD = ( ( (status_reg[0] & 0xFF00) >> 8) >> 1) & 0x03;
+            status.gGTO = ( ( (status_reg[0] & 0xFF00) >> 8) >> 3) & 0x01;
+            status.gSTA = ( ( (status_reg[0] & 0xFF00) >> 8) >> 4) & 0x03;
+            status.gOBJ = ( ( (status_reg[0] & 0xFF00) >> 8) >> 6) & 0x03;
+            status.gVAS =   ( (status_reg[0] & 0x00FF) >> 0) & 0x03;
+            status.gFLT = ( ( (status_reg[1] & 0xFF00) >> 8) >> 0) & 0x0F;
+            status.gPR =      (status_reg[1] & 0x00FF);
+            status.gPO =    ( (status_reg[2] & 0xFF00) >> 8);
+            count++;
 
-        status.gACT = ( ( (status_reg[0] & 0xFF00) >> 8) >> 0) & 0x01;
-        status.gMOD = ( ( (status_reg[0] & 0xFF00) >> 8) >> 1) & 0x03;
-        status.gGTO = ( ( (status_reg[0] & 0xFF00) >> 8) >> 3) & 0x01;
-        status.gSTA = ( ( (status_reg[0] & 0xFF00) >> 8) >> 4) & 0x03;
-        status.gOBJ = ( ( (status_reg[0] & 0xFF00) >> 8) >> 6) & 0x03;
-        status.gVAS =   ( (status_reg[0] & 0x00FF) >> 0) & 0x03;
-        status.gFLT = ( ( (status_reg[1] & 0xFF00) >> 8) >> 0) & 0x0F;
-        status.gPR =      (status_reg[1] & 0x00FF);
-        status.gPO =    ( (status_reg[2] & 0xFF00) >> 8);
-        count++;
-
-        if(count == 50){
-        std::cout   << "gACT :" << std::to_string(status.gACT) << " gMOD: " 
-                    << std::to_string(status.gMOD) << " gGTO: " << std::to_string(status.gGTO) << " gSTA: " 
-                    << std::to_string(status.gSTA) << " gOBJ: " << std::to_string(status.gOBJ) << " gVAS: "
-                    << std::to_string(status.gVAS) << " gFLT: " << std::to_string(status.gFLT) << " gPR: "
-                    << std::to_string(status.gPR)  << " gPO: "  << std::to_string(status.gPO ) << std::endl;
-        count = 0;
+            if(count == 50){
+            std::cout   << "gACT :" << std::to_string(status.gACT) << " gMOD: " 
+                        << std::to_string(status.gMOD) << " gGTO: " << std::to_string(status.gGTO) << " gSTA: " 
+                        << std::to_string(status.gSTA) << " gOBJ: " << std::to_string(status.gOBJ) << " gVAS: "
+                        << std::to_string(status.gVAS) << " gFLT: " << std::to_string(status.gFLT) << " gPR: "
+                        << std::to_string(status.gPR)  << " gPO: "  << std::to_string(status.gPO ) << std::endl;
+            count = 0;
+            }
         }
-
 
         tab_reg[0] = ( ( command.rACT + (command.rMOD << 1) + (command.rGTO << 3) + (command.rATR << 4) ) << 8 ) + 0;        
         tab_reg[1] = ( 0 << 8 ) +  command.rPR;       
@@ -145,12 +147,10 @@ void epick::updateDrive(){
         rc =  modbus_write_registers(serial,INPUT_REGISTERS,3,tab_reg);
         if(rc == -1)  fprintf(stderr, "Write registers failed: %s\n", modbus_strerror(errno));
         
-        usleep(1e4);
-        // modbus_flush(serial);    
+        usleep(2e4);          
     }
 
 }
-
 
 
 
